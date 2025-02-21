@@ -1,15 +1,8 @@
 import puppeteer from 'puppeteer';
 import fs from "fs";
 
-// Function for logging
-const log = (message, type = "info") => {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] [${type.toUpperCase()}]: ${message}`;
-    console.log(logMessage);
-};
-
-(async () => {
-    log("🚀 Launching Puppeteer browser...");
+export const scrapeStackOverflow = async (searchQuery) => {
+    console.log("🚀 Launching Puppeteer browser...");
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
 
@@ -21,11 +14,11 @@ const log = (message, type = "info") => {
     if (fs.existsSync("cookies.json")) {
         const cookies = JSON.parse(fs.readFileSync("cookies.json"));
         await page.setCookie(...cookies);
-        log("✅ Loaded existing cookies!");
+        console.log("✅ Loaded existing cookies!");
     }
 
     // Navigate to StackOverflow Questions page to check login status
-    log("🔍 Checking login status...");
+    console.log("🔍 Checking login status...");
     await page.goto("https://stackoverflow.com/questions", { waitUntil: "networkidle2" });
 
     // Check if user is already logged in
@@ -34,7 +27,7 @@ const log = (message, type = "info") => {
     });
 
     if (!isLoggedIn) {
-        log("🔑 Not logged in. Proceeding with login...");
+        console.log("🔑 Not logged in. Proceeding with login...");
         
         // Navigate to login page
         await page.goto("https://stackoverflow.com/users/login", { waitUntil: "networkidle2" });
@@ -50,17 +43,17 @@ const log = (message, type = "info") => {
         // Save Cookies After Login
         const cookies = await page.cookies();
         fs.writeFileSync("cookies.json", JSON.stringify(cookies, null, 2));
-        log("✅ Login successful! Saved session cookies.");
+        console.log("✅ Login successful! Saved session cookies.");
     } else {
-        log("✅ Already logged in. Skipping login process.");
+        console.log("✅ Already logged in. Skipping login process.");
     }
 
     // Navigate to Questions Page After Login
-    log("📄 Navigating to StackOverflow questions page...");
-    await page.goto('https://stackoverflow.com/questions', { waitUntil: "networkidle2" });
+    console.log("📄 Navigating to StackOverflow questions page...");
+    await page.goto(`https://stackoverflow.com/search?q=${encodeURIComponent(searchQuery)}`, { waitUntil: "networkidle2" });
 
     // Extract the question, URL, and description
-    log("🔍 Extracting questions...");
+    console.log("🔍 Extracting questions...");
     const questions = await page.evaluate(() => {
         return Array.from(document.querySelectorAll(".s-post-summary")).map(post => ({
             question: post.querySelector("h3 a")?.innerText.trim(),
@@ -70,14 +63,16 @@ const log = (message, type = "info") => {
     });
 
     if (questions.length > 0) {
-        log(`✅ Successfully scraped ${questions.length} questions.`);
+        console.log(`✅ Successfully scraped ${questions.length} questions.`);
     } else {
-        log("⚠️ No questions found. The page structure may have changed.", "warning");
+        console.log("⚠️ No questions found. The page structure may have changed.", "warning");
     }
 
     console.log("📌 Scraped Questions:", questions);
 
-    log("🛑 Closing the browser...");
+    console.log("🛑 Writing result to stackoverflow_results.json...");
+    await fs.writeFile('stackoverflow_results.json', JSON.stringify(questions, null, 2));
     await browser.close();
-    log("✅ Browser closed. Script completed.");
-})();
+    console.log("✅ Browser closed. Script completed.");
+    return questions;
+};

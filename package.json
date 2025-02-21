@@ -1,6 +1,24 @@
 {
   "type": "module",
   "dependencies": {
+    "apollo-server-express": "^3.13.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fs": "^0.0.1-security",
+    "graphql": "^16.10.0",
+    "mongoose": "^8.10.1",
+    "promises": "^0.2.5",
     "puppeteer": "^24.2.1"
-  }
+  },
+  "name": "web_scraping",
+  "version": "1.0.0",
+  "main": "Quora.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
 }
