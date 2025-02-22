@@ -1,5 +1,5 @@
 import express from "express";
-import { QuorascrapeAnswers, loginToSite } from "./scraper.js";
+import { QuoraScrapeAnswers, loginToSite } from "./scraper.js";
 import { Question, Response } from "./models/models.js";
 import connectDB from "./db.js"; // Import the database connection
 
@@ -26,7 +26,7 @@ app.post("/ask", async (req, res) => {
   const question = await Question.create({ text, userId });
 
   // Trigger scraping asynchronously
-  QuorascrapeAnswers(question);
+  QuoraScrapeAnswers(question);
 
   res.json({ message: "Processing your query!", question });
 });
