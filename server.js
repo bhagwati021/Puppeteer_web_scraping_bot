@@ -1,5 +1,5 @@
 import express from "express";
-import { QuoraScrapeAnswers, loginToSite } from "./scraper.js";
+import { QuoraScrapeAnswers, loginToSiteQuora,loginToSiteStack,StackOverflowScrapeAnswers } from "./scraper.js";
 import { Question, Response } from "./models/models.js";
 import connectDB from "./db.js"; // Import the database connection
 
@@ -26,7 +26,10 @@ app.post("/ask", async (req, res) => {
   const question = await Question.create({ text, userId });
 
   // Trigger scraping asynchronously
+ 
   QuoraScrapeAnswers(question);
+  StackOverflowScrapeAnswers(question);
+  
 
   res.json({ message: "Processing your query!", question });
 });
@@ -37,20 +40,26 @@ app.get("/responses/:questionId", async (req, res) => {
   res.json(responses);
 });
 
-app.post("/login", async (req, res) => {
+
+
+  app.post("/login", async (req, res) => {
     const { site, email, Password } = req.body;
   
-    // Validate if site is Quora
-    if (site !== "https://www.quora.com/") {
-      return res.status(400).json({ error: "Only Quora login is supported." });
-    }
-  
     try {
-      const session = await loginToSite(site, email, Password);
-      res.json(session);
+        let session;
+
+        if (site === "https://www.quora.com/") {
+            session = await loginToSiteQuora(site, email, Password);
+        } else if (site === "https://stackoverflow.com/") {
+            session = await loginToSiteStack(site,email, Password);
+        } else {
+            return res.status(400).json({ error: "Unsupported site. Use 'quora' or 'stackoverflow'." });
+        }
+
+        res.json(session);
     } catch (error) {
-      res.status(500).json({ error: "Login failed", details: error.message });
+        res.status(500).json({ error: "Login failed", details: error.message });
     }
-  });
+});
   
 
