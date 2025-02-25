@@ -1,12 +1,35 @@
 import puppeteer from "puppeteer";
-import { Credential, Response } from "./models/models.js";
+import { Credential, Response, Metadata } from "./models/models.js";
 import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import winston from 'winston';
 
 const API_KEY = "AIzaSyBPSX1lR0Z-GxqsTzJRqjzuhDmH1jY3CHQ" // Store securely (e.g., in .env)
 const genAI = new GoogleGenerativeAI(API_KEY);
 
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.json(),
+    transports: [new winston.transports.Console(), new winston.transports.File({ filename: 'logs/app.log' })],
+  });
 
+
+// Function to get the next available temp email in round-robin fashion
+const getNextTempEmail = async (site) => {
+    const accounts = await Credential.find({site}); //only have one accunt for now
+    // const accounts = await Credential.find({site}).limit(6); // Fetch stored accounts
+    console.log(accounts.length);
+    if (accounts.length === 0) throw new Error("No temporary accounts found in DB!");
+
+    // Use round-robin approach
+    const lastUsedIndex = (await Metadata.findOne({ key: "lastUsedIndex" })) || { value: -1 };
+    const nextIndex = (lastUsedIndex.value + 1) % accounts.length;
+
+    // Update last used index in DB
+    await Metadata.updateOne({ key: "lastUsedIndex" }, { value: nextIndex }, { upsert: true });
+
+    return accounts[nextIndex];
+};
 
 // Function to get a summarized response using Gemini AI
 const summarizeWithGemini = async (text) => {
@@ -66,9 +89,9 @@ export const loginToSiteStack = async (site, email, Password) => {
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
 
-     // Set User-Agent and viewport
-     await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-     await page.setViewport({ width: 1280, height: 800 });
+    // Set User-Agent and viewport
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+    await page.setViewport({ width: 1280, height: 800 });
 
     await page.goto(site, { waitUntil: "networkidle2" });
 
@@ -77,7 +100,7 @@ export const loginToSiteStack = async (site, email, Password) => {
     // await page.click('a[href^="https://stackoverflow.com/users/login"]');
 
     await page.waitForSelector("#email");
-    await page.type("#email", email);
+    await page.type("#email", "upgfanclub@gmail.com");
 
     await page.waitForSelector("#password");
     await page.type("#password", Password);
@@ -209,6 +232,13 @@ export const QuoraScrapeAnswers = async (query) => {
 
 // Function to scrape answers from Stack Overflow
 export const StackOverflowScrapeAnswers = async (query) => {
+
+    const site = "https://stackoverflow.com/";
+    const account = await getNextTempEmail(site);
+    if (!account) throw new Error("No valid user account found!");
+
+    console.log(`🔄 Using account: ${account.email} for scraping`);
+
     const browser = await puppeteer.launch({  
         headless: false,
         userDataDir: "./user_data", 
@@ -220,6 +250,7 @@ export const StackOverflowScrapeAnswers = async (query) => {
      await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
      await page.setViewport({ width: 1280, height: 800 });
     
+ /*     
     // Load stored cookies for authentication
     const credentials = await Credential.findOne({ site: "https://stackoverflow.com/" });
 
@@ -229,23 +260,36 @@ export const StackOverflowScrapeAnswers = async (query) => {
         return null;
     }
 
-
     if (!credentials) throw new Error("No credentials found!");
     console.log("🍪 Applying stored cookies...");
     await page.setCookie(...credentials.cookies);
 
-    console.log("🍪 Applying stored cookies...");
-    for (const cookie of credentials.cookies) {
-        console.log(`Setting cookie: ${cookie.name} for ${cookie.domain}`);
-        await page.setCookie(cookie);
+*/
+     // Apply stored cookies from the retrieved account
+     if (account.cookies && account.cookies.length > 0) {
+        console.log("🍪 Applying stored cookies for authentication...");
+        await page.setCookie(...account.cookies);
+    } else {
+        console.log("⚠️ No valid cookies found! You might need to log in manually first.");
+        await browser.close();
+        return null;
     }
 
-    console.log(`🔍 Searching Stack Overflow for: ${query.text}`);
 
     // Step 1: Search for the question
+    console.log(`🔍 Searching Stack Overflow for: ${query.text}`);
     await page.goto(`https://stackoverflow.com/`, { waitUntil: "networkidle2" });
 
+    // Handle CSRF Token
+    const getCSRFToken = async (page) => {
+        const csrfToken = await page.evaluate(() => {
+            return document.querySelector('input[name="fkey"]')?.value;
+        });
+        return csrfToken;
+    };
 
+    const csrfToken = await getCSRFToken(page);
+    console.log("🔑 CSRF Token:", csrfToken);
 
     // Step 2: Type the search query
     const searchSelector = 'input[name="q"]';
@@ -253,19 +297,10 @@ export const StackOverflowScrapeAnswers = async (query) => {
     await page.type(searchSelector, query.text); // Type query
     await page.keyboard.press('Enter'); // Press Enter to search
 
-
-
-
-    // Step 3: Wait for navigation to search results
-    await page.waitForNavigation({ waitUntil: "networkidle2" });
-
-    console.log("🔎 Search results loaded!");
-
     
     // Step 3: Wait for you to manually solve CAPTCHA
     console.log("⚠️ Please solve the CAPTCHA manually. Waiting for 30 seconds...");
     await new Promise(resolve => setTimeout(resolve, 120000));
-
     console.log("✅ Continuing after CAPTCHA...");
 
 /* 
@@ -274,7 +309,8 @@ export const StackOverflowScrapeAnswers = async (query) => {
         const links = Array.from(document.querySelectorAll("s-post-summary--content h3 a")).map(el => el.href);
         return links;
     });
- */
+*/
+
     // Step 2: Get the first search result link
     const questionUrl = await page.evaluate(() => {
         const firstResult = document.querySelector(".s-post-summary--content h3 a");

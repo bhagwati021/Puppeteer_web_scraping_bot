@@ -30,3 +30,12 @@ const credentialSchema = new mongoose.Schema({
 });
 
 export const Credential = mongoose.model("Credential", credentialSchema);
+
+
+// Stores metadata like lastUsedIndex
+const metadataSchema = new mongoose.Schema({
+  key: { type: String, unique: true }, 
+  value: Number
+});
+
+export const Metadata = mongoose.model("Metadata", metadataSchema);
