@@ -1,23 +1,40 @@
-import puppeteer from "puppeteer";
+// import puppeteer from "puppeteer";
+import puppeteer from 'puppeteer-extra';
 import { Credential, Response, Metadata } from "./models/models.js";
 import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import winston from 'winston';
-
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 const API_KEY = "AIzaSyBPSX1lR0Z-GxqsTzJRqjzuhDmH1jY3CHQ" // Store securely (e.g., in .env)
 const genAI = new GoogleGenerativeAI(API_KEY);
 
+// Proxy setup
+
+
+// Apply Stealth Plugin
+puppeteer.use(StealthPlugin());
+
+// Logger configuration
 const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.json(),
-    transports: [new winston.transports.Console(), new winston.transports.File({ filename: 'logs/app.log' })],
-  });
+    level: "info",
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.printf(({ timestamp, level, message }) => {
+            return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+        })
+    ),
+    transports: [
+        new winston.transports.Console(),
+        new winston.transports.File({ filename:'logs/app.log' })
+    ]
+});
 
 
 // Function to get the next available temp email in round-robin fashion
 const getNextTempEmail = async (site) => {
-    const accounts = await Credential.find({site}); //only have one accunt for now
-    // const accounts = await Credential.find({site}).limit(6); // Fetch stored accounts
+
+    const accounts = await Credential.find({site});         //only have one accunt for now
+
     console.log(accounts.length);
     if (accounts.length === 0) throw new Error("No temporary accounts found in DB!");
 
@@ -31,23 +48,26 @@ const getNextTempEmail = async (site) => {
     return accounts[nextIndex];
 };
 
+
+
 // Function to get a summarized response using Gemini AI
 const summarizeWithGemini = async (text) => {
     try {
-
         if (!text) return "No text provided for summarization.";
 
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         // Generate summary with a concise request
         const prompt = `Summarize this in 1-2 sentences:\n\n${text}`;
-
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const summary = response.text();
 
+        logger.info("summary created..");
         return summary || "No summary available.";
+
     } catch (error) {
+        logger.error(`Error summarizing with Gemini: ${error.message}`);
         console.error("Error summarizing with Gemini:", error.message);
         return "Error summarizing content.";
     }
@@ -56,18 +76,19 @@ const summarizeWithGemini = async (text) => {
 
 // Authentication & Cookie Handling
 export const loginToSiteQuora = async (site, email, Password) => {
+    logger.info("Starting Puppeteer browser for quora...");
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
 
+    try{
+    logger.info("Navigating to quora..");
     await page.goto(site, { waitUntil: "networkidle2" });
-
     await page.type("input[type='email']", email);
     await page.type("input[type='password']", Password);
     await page.click("div.q-flex.qu-justifyContent--space-between.qu-alignItems--center > button");
     await page.waitForNavigation({ waitUntil: "networkidle2" });
 
-    const cookies = await page.cookies();
-    
+    logger.info("Closing browser...");
     await browser.close();
 
     // Save credentials securely
@@ -79,43 +100,49 @@ export const loginToSiteQuora = async (site, email, Password) => {
             Password, // Ensure hashing
             cookies,
         });
+        logger.info(`Successfully added credentials for ${email} on ${site}`);
+    } else{
+        logger.warn(`Credentials for ${email} on ${site} already exist.`);
     }
-
+    await browser.close();
     return { cookies };
+
+    } catch(error){
+        logger.error(`Error occurred: ${error.message}`);
+        await browser.close();
+        throw error;
+    }
 };
 
 
 export const loginToSiteStack = async (site, email, Password) => {
+    logger.info("Starting Puppeteer browser for StackOverflow...");
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
 
+    try {
     // Set User-Agent and viewport
+    logger.info("Navigating to Stack Overflow...");
     await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
     await page.setViewport({ width: 1280, height: 800 });
 
     await page.goto(site, { waitUntil: "networkidle2" });
-
-
-    await page.click("body > header > div > nav > ol > li:nth-child(3) > a");
+    await page.click("body > header > div > nav > ol > li:nth-child(3) > a");             //navigate to login button
     // await page.click('a[href^="https://stackoverflow.com/users/login"]');
 
     await page.waitForSelector("#email");
-    await page.type("#email", "upgfanclub@gmail.com");
-
+    await page.type("#email", email);
     await page.waitForSelector("#password");
     await page.type("#password", Password);
-
-
     await page.click("#submit-button");
 
     await page.waitForNavigation({ waitUntil: "networkidle2" });
 
     const cookies = await page.cookies();
     
-    await browser.close();
 
-    // Save credentials securely
-    const existingCredential = await Credential.findOne({ site });
+    // Check if the email already exists for the same site
+    const existingCredential = await Credential.findOne({ site, email });
     if (!existingCredential) {
         await Credential.create({
             site,
@@ -123,43 +150,62 @@ export const loginToSiteStack = async (site, email, Password) => {
             Password, // Ensure hashing
             cookies,
         });
+        logger.info(`Successfully added credentials for ${email} on ${site}`);
+    } else{
+        logger.warn(`Credentials for ${email} on ${site} already exist.`);
     }
 
+    await browser.close();
     return { cookies };
+
+    }catch(error){
+        logger.error(`Error occurred: ${error.message}`);
+        await browser.close();
+        throw error;
+    }   
 };
 
 
-
+//Scraping the answer from Quora
 export const QuoraScrapeAnswers = async (query) => {
+
+    logger.info("Starting Puppeteer browser for Quora...");
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
 
     // Load stored cookies for authentication
+    logger.info("loading the cookies into Quora...");
     const credentials = await Credential.findOne({ site: "https://www.quora.com/" });
     if (!credentials) throw new Error("No credentials found!");
     await page.setCookie(...credentials.cookies);
 
-    // Step 1: Search for the question
+    // Step 0: Search for the question
+    logger.info(`🔍 Searching Quora for: ${query.text}`);
     console.log(`🔍 Searching Quora for: ${query.text}`);
     await page.goto("https://www.quora.com/", { waitUntil: "networkidle2" });
-
     await page.type("input[placeholder='Search Quora']", query.text);
 
-    // Step 2: Click the first search result
+    // Step 1: Click the first search result
     const firstResultSelector = "div[role='option']";
     await page.waitForSelector(firstResultSelector, { visible: true });
     await page.click(firstResultSelector);
     await page.waitForNavigation({ waitUntil: "networkidle2" });
 
 
-    // Step 2: Get the first search result link
+    // Step 2: Get the all the search result link
     const questionLinks = await page.evaluate(() => {
         const links = Array.from(document.querySelectorAll("a.q-box")).map(el => el.href);
+        logger.info(`🔍 successfully extracted all the links for the relavent answer(Quora)}`);
         return links;
     });
 
-    const questionUrl = questionLinks[6]; // Get the 6th URL which is the 
+    // Get the 6th URL which is the which is the first result
+    const questionUrl = questionLinks[6];  
+    logger.info(`🔍 successfully extracted the first links for the relavent answer(Quora)}`);                                          
 
+
+    // visiting the child link or the question url
+    logger.info(`🔗 Visiting Quora question page: ${questionUrl}`);
     console.log(`🔗 Visiting Quora question page: ${questionUrl}`);
     await page.goto(questionUrl, { waitUntil: "networkidle2" });
 
@@ -175,6 +221,7 @@ export const QuoraScrapeAnswers = async (query) => {
         .first()
         .text()
         .trim();
+
 
    /*  // Step 5: Scrape the first answer
     const firstAnswer = await page.evaluate(() => {
@@ -208,11 +255,15 @@ export const QuoraScrapeAnswers = async (query) => {
     }
 
     console.log("📄 First answer extracted(Quora):", firstAnswer);
+    logger.info(`📄 First answer extracted(Quora):`);
 
     // Step 7: Summarize the answer using Gemini
+    logger.info(`✍️ Summarizing answer with Gemini(Quora)...`);
     console.log("✍️ Summarizing answer with Gemini(Quora)...");
     const summary = await summarizeWithGemini(firstAnswer);
     console.log("✅ Summary(Quora):", summary);
+    logger.info(`✅ Summary Generated!!(Quora):`);
+    
 
     // Step 8: Store the summarized answer in MongoDB
     const responseEntry = new Response({
@@ -224,6 +275,8 @@ export const QuoraScrapeAnswers = async (query) => {
 
     await responseEntry.save();
     console.log("💾 Summarized answer saved to database!");
+    logger.info(`💾 Summarized answer saved to database`);
+    
 
     await browser.close();
     return responseEntry;
@@ -239,10 +292,19 @@ export const StackOverflowScrapeAnswers = async (query) => {
 
     console.log(`🔄 Using account: ${account.email} for scraping`);
 
+    const proxies = [
+        'http://155.54.239.64:80',
+        'http://31.220.15.234:80',
+        'http://85.215.64.49:80',
+      ];
+
+    for (let i = 0; i < 5; i++) {
+        const proxy = proxies[Math.floor(Math.random() * proxies.length)];
+    
     const browser = await puppeteer.launch({  
         headless: false,
         userDataDir: "./user_data", 
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],  });
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--proxy-server=${proxy}"] });
 
     const page = await browser.newPage();
      
@@ -265,8 +327,14 @@ export const StackOverflowScrapeAnswers = async (query) => {
     await page.setCookie(...credentials.cookies);
 
 */
-     // Apply stored cookies from the retrieved account
-     if (account.cookies && account.cookies.length > 0) {
+
+    console.log(`Scraped using proxy: ${proxy}`);
+    // Step 1: Search for the question
+    console.log(`🔍 Searching Stack Overflow for: ${query.text}`);
+    await page.goto(`https://stackoverflow.com/`, { waitUntil: "networkidle2" });
+
+    // Apply stored cookies from the retrieved account
+    if (account.cookies && account.cookies.length > 0) {
         console.log("🍪 Applying stored cookies for authentication...");
         await page.setCookie(...account.cookies);
     } else {
@@ -274,11 +342,6 @@ export const StackOverflowScrapeAnswers = async (query) => {
         await browser.close();
         return null;
     }
-
-
-    // Step 1: Search for the question
-    console.log(`🔍 Searching Stack Overflow for: ${query.text}`);
-    await page.goto(`https://stackoverflow.com/`, { waitUntil: "networkidle2" });
 
     // Handle CSRF Token
     const getCSRFToken = async (page) => {
@@ -364,5 +427,20 @@ export const StackOverflowScrapeAnswers = async (query) => {
 
     await browser.close();
     return responseEntry;
+    }
 
 };
+
+
+export const fetchResponse = async (questionId) => {
+    const Response = mongoose.model("Response", responseSchema);
+    try {
+        const responses = await Response.find({ question_id: questionId }).select("-_id response_text");
+        console.log("Responses:", responses);
+    } catch (error) {
+        console.error("Error fetching responses:", error);
+    } finally {
+        mongoose.connection.close();
+    }
+
+}

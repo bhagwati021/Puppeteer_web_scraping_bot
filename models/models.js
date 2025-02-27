@@ -22,7 +22,7 @@ export const Response = mongoose.model("Response", responseSchema);
 
 // Stores login credentials securely
 const credentialSchema = new mongoose.Schema({
-  site: String,
+  site: { type: String, required: true, index: true }, 
   email: String,
   Password: String,  // Should be hashed
   cookies: Array,
@@ -34,8 +34,8 @@ export const Credential = mongoose.model("Credential", credentialSchema);
 
 // Stores metadata like lastUsedIndex
 const metadataSchema = new mongoose.Schema({
-  key: { type: String, unique: true }, 
-  value: Number
+  key: { type: String, unique: true, required: true }, 
+  value: { type: Number, default: -1 }
 });
 
 export const Metadata = mongoose.model("Metadata", metadataSchema);
