@@ -28,9 +28,9 @@ app.post("/ask", async (req, res) => {
 
   // Trigger scraping asynchronously
  
- // QuoraScrapeAnswers(question);
-  StackOverflowScrapeAnswers(question);
   QuoraScrapeAnswers(question);
+  StackOverflowScrapeAnswers(question);
+  
   
   res.json({ message: "Processing your query!", question });
 });

@@ -181,7 +181,6 @@ export const QuoraScrapeAnswers = async (query) => {
 
     // Step 0: Search for the question
     logger.info(`🔍 Searching Quora for: ${query.text}`);
-    console.log(`🔍 Searching Quora for: ${query.text}`);
     await page.goto("https://www.quora.com/", { waitUntil: "networkidle2" });
     await page.type("input[placeholder='Search Quora']", query.text);
 
@@ -194,19 +193,40 @@ export const QuoraScrapeAnswers = async (query) => {
 
     // Step 2: Get the all the search result link
     const questionLinks = await page.evaluate(() => {
-        const links = Array.from(document.querySelectorAll("a.q-box")).map(el => el.href);
-        logger.info(`🔍 successfully extracted all the links for the relavent answer(Quora)}`);
+        const links = Array.from(document.querySelectorAll("#mainContent > div > div > div:nth-child(2) > div > span > a")).map(el => el.href);           // Get the first 5 question URLs
         return links;
     });
 
+    console.log(questionLinks);
+/* 
     // Get the 6th URL which is the which is the first result
     const questionUrl = questionLinks[6];  
     logger.info(`🔍 successfully extracted the first links for the relavent answer(Quora)}`);                                          
 
+ */
+
+    const selectedLinks = [];
+    const positions = [0,1,2,3,4];  // Adjust based on availability
 
     // visiting the child link or the question url
+    for (const pos of positions) {
+        if (questionLinks[pos]) {
+            selectedLinks.push(questionLinks[pos]);
+            if (selectedLinks.length >= 5) break;  // Stop after collecting 5 links
+        }
+    }
+    if (selectedLinks.length === 0) {
+        logger.warn("❌ No valid question links found in specified positions.");
+        await browser.close();
+        return null;
+    }
+
+    logger.info(`✅ Selected ${selectedLinks.length} question links from Quora.`);
+
+    const responses = [];
+
+    for (const questionUrl of selectedLinks) {
     logger.info(`🔗 Visiting Quora question page: ${questionUrl}`);
-    console.log(`🔗 Visiting Quora question page: ${questionUrl}`);
     await page.goto(questionUrl, { waitUntil: "networkidle2" });
 
     // Step 3: Get the page content
@@ -236,50 +256,51 @@ export const QuoraScrapeAnswers = async (query) => {
     
     // Step 6:Falback mechanism for scraping the answers
     if (!firstAnswer) {
-        console.log("❌ No answer found! Retrying with alternative selector...");
-        
+        logger.warn("❌ No answer found! Retrying with alternative selector...");
+
         // Try a different selector if first attempt fails
-        const fallbackAnswer = await page.evaluate(() => {
+        firstAnswer = await page.evaluate(() => {
             const altAnswerContainer = document.querySelector(".q-text > span > span");
             return altAnswerContainer ? altAnswerContainer.innerText.trim() : null;
         });
     
-        if (!fallbackAnswer) {
+        if (!firstAnswer) {
             console.log("🚨 No answer found even with fallback selector. Exiting.");
             await browser.close();
             return null;
         }
     
-        console.log("✅ Found answer using fallback selector:", fallbackAnswer);
-        return fallbackAnswer;
+        logger.info(`✅ Found answer using fallback selector:${firstAnswer}`);
+    
     }
 
-    console.log("📄 First answer extracted(Quora):", firstAnswer);
-    logger.info(`📄 First answer extracted(Quora):`);
+    //console.log("📄 First answer extracted(Quora):", firstAnswer);
+    logger.info(`📄 First answer extracted(Quora):${firstAnswer}`);
 
-    // Step 7: Summarize the answer using Gemini
+   /*  // Step 7: Summarize the answer using Gemini
     logger.info(`✍️ Summarizing answer with Gemini(Quora)...`);
     console.log("✍️ Summarizing answer with Gemini(Quora)...");
     const summary = await summarizeWithGemini(firstAnswer);
     console.log("✅ Summary(Quora):", summary);
-    logger.info(`✅ Summary Generated!!(Quora):`);
+    logger.info(`✅ Summary Generated!!(Quora):`); */
     
 
     // Step 8: Store the summarized answer in MongoDB
     const responseEntry = new Response({
         questionId: query._id,
         source: "Quora",
-        content: summary,
+        content: firstAnswer,
         url: questionUrl,
     });
 
     await responseEntry.save();
-    console.log("💾 Summarized answer saved to database!");
+
+    responses.push(responseEntry);
     logger.info(`💾 Summarized answer saved to database`);
-    
+}
 
     await browser.close();
-    return responseEntry;
+    return responses;
 
 };
 
@@ -292,19 +313,19 @@ export const StackOverflowScrapeAnswers = async (query) => {
 
     console.log(`🔄 Using account: ${account.email} for scraping`);
 
-    const proxies = [
-        'http://155.54.239.64:80',
-        'http://31.220.15.234:80',
-        'http://85.215.64.49:80',
+  /*   const proxies = [
+        'http://219.65.73.81:80',
+        'http://68.183.143.134:80',
+        'http://63.143.57.119:80',
       ];
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 5; i++) 
         const proxy = proxies[Math.floor(Math.random() * proxies.length)];
-    
+     */
     const browser = await puppeteer.launch({  
         headless: false,
         userDataDir: "./user_data", 
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--proxy-server=${proxy}"] });
+        args: ["--no-sandbox", "--disable-setuid-sandbox",] });
 
     const page = await browser.newPage();
      
@@ -328,7 +349,7 @@ export const StackOverflowScrapeAnswers = async (query) => {
 
 */
 
-    console.log(`Scraped using proxy: ${proxy}`);
+   
     // Step 1: Search for the question
     console.log(`🔍 Searching Stack Overflow for: ${query.text}`);
     await page.goto(`https://stackoverflow.com/`, { waitUntil: "networkidle2" });
@@ -363,7 +384,7 @@ export const StackOverflowScrapeAnswers = async (query) => {
     
     // Step 3: Wait for you to manually solve CAPTCHA
     console.log("⚠️ Please solve the CAPTCHA manually. Waiting for 30 seconds...");
-    await new Promise(resolve => setTimeout(resolve, 120000));
+    await new Promise(resolve => setTimeout(resolve, 50000));
     console.log("✅ Continuing after CAPTCHA...");
 
 /* 
@@ -375,18 +396,35 @@ export const StackOverflowScrapeAnswers = async (query) => {
 */
 
     // Step 2: Get the first search result link
-    const questionUrl = await page.evaluate(() => {
-        const firstResult = document.querySelector(".s-post-summary--content h3 a");
-        return firstResult ? firstResult.href : null;
+    const questionLinks = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll(".s-post-summary--content h3 a")).map(el => el.href);
+        return links;
     });
+    console.log(questionLinks);
 
-    if (!questionUrl) {
-        console.log("❌ No results found on Stack Overflow.");
+    
+    const selectedLinks = [];
+    const positions = [0,1,2,3,4]; 
+     // visiting the child link or the question url
+     for (const pos of positions) {
+        if (questionLinks[pos]) {
+            selectedLinks.push(questionLinks[pos]);
+            if (selectedLinks.length >= 5) break;  // Stop after collecting 5 links
+        }
+    }
+    if (selectedLinks.length === 0) {
+        logger.warn("❌ No valid question links found in specified positions.");
         await browser.close();
         return null;
     }
 
-    console.log(`🔗 Visiting question page: ${questionUrl}`);
+    logger.info(`✅ Selected ${selectedLinks.length} question links from Quora.`);
+
+    const responses = [];
+    
+   
+    for (const questionUrl of selectedLinks) {
+    logger.info(`🔗 Visiting question page: ${questionUrl}`);
     await page.goto(questionUrl, { waitUntil: "networkidle2" });
 
     // Step 3: Extract page content
@@ -397,37 +435,38 @@ export const StackOverflowScrapeAnswers = async (query) => {
     let firstAnswer = $(".answercell .s-prose").first().text().trim();
 
     if (!firstAnswer) {
-        console.log("❌ No answer found! Trying fallback selector...");
+        logger.info("❌ No answer found! Trying fallback selector...");
         firstAnswer = $(".answer").first().text().trim();
     }
 
     if (!firstAnswer) {
-        console.log("🚨 No answer found even with fallback selector. Exiting.");
+        logger.error("🚨 No answer found even with fallback selector. Exiting.");
         await browser.close();
         return null;
     }
 
-    console.log("📄 First answer extracted:", firstAnswer);
+    logger.info(`📄 First answer extracted(stack):${firstAnswer}`);
+    //console.log("📄 First answer extracted:", firstAnswer);
 
-    // Step 5: Summarize the answer
+   /*  // Step 5: Summarize the answer
     console.log("✍️ Summarizing answer with Gemini...");
     const summary = await summarizeWithGemini(firstAnswer);
     console.log("✅ Summary:", summary);
-
+ */
     // Step 6: Store in MongoDB
     const responseEntry = new Response({
         questionId: query._id,
         source: "Stack Overflow",
-        content: summary,
+        content: firstAnswer,
         url: questionUrl,
     });
 
     await responseEntry.save();
     console.log("💾 Summarized answer saved to database!");
-
-    await browser.close();
-    return responseEntry;
     }
+    await browser.close();
+    return responses;
+
 
 };
 
