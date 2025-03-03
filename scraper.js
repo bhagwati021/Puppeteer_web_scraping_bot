@@ -516,17 +516,28 @@ export const fetchResponse = async (questionId) => {
  };
  */
 
-  export const summarizeResponses = async (questionId) => {
+export const summarizeResponses = async (questionId) => {
     try {
         const responses = await Response.find({ questionId });
         if (!responses.length) return null;
-        
+
+        // Combine all responses into one text block
         const responseText = responses.map(r => r.content).join('\n');
+
+        // Initialize Gemini Model
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent(responseText);
-        const summaryText = result.response.candidates[0].content.parts[0].text;
-        
-        await Question.findByIdAndUpdate(questionId, { summaryText });
+
+        // Generate summary using Gemini API
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: `Summarize the following responses:\n\n${responseText}` }] }]
+        });
+
+        // Extract summary text safely
+        const summaryText = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text || "Summary not available";
+
+        // Update the question with the generated summary
+        await Question.findByIdAndUpdate(questionId, { summary: summaryText }, { new: true });
+
         console.log(`Summary updated for question: ${questionId}`);
         return summaryText;
     } catch (error) {
@@ -534,4 +545,5 @@ export const fetchResponse = async (questionId) => {
         return null;
     }
 };
+
 
