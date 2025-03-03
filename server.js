@@ -1,5 +1,5 @@
 import express from "express";
-import { QuoraScrapeAnswers, loginToSiteQuora,loginToSiteStack,StackOverflowScrapeAnswers } from "./scraper.js";
+import { QuoraScrapeAnswers, loginToSiteQuora,loginToSiteStack,StackOverflowScrapeAnswers,summarizeResponses } from "./scraper.js";
 import { Question, Response } from "./models/models.js";
 import connectDB from "./db.js"; // Import the database connection
 import mongoose from "mongoose";
@@ -58,6 +58,17 @@ app.get("/responses/:questionId", async (req, res) => {
   }
 });
 
+app.post("/update/:questionId", async (req, res) => {
+  const { questionId } = req.params;
+
+  try {
+    let summary = await summarizeResponses(questionId);
+    res.json({ summary });
+  } catch (error) {
+    console.error("Error updating summary:", error);
+    res.status(500).json({ error: "Failed to update summary" });
+  }
+});
 
   app.post("/login", async (req, res) => {
     const { site, email, Password } = req.body;

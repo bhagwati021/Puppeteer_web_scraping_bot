@@ -1,13 +1,13 @@
 // import puppeteer from "puppeteer";
 import puppeteer from 'puppeteer-extra';
-import { Credential, Response, Metadata } from "./models/models.js";
+import { Credential, Response, Metadata,Question } from "./models/models.js";
 import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import winston from 'winston';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 const API_KEY = "AIzaSyBPSX1lR0Z-GxqsTzJRqjzuhDmH1jY3CHQ" // Store securely (e.g., in .env)
 const genAI = new GoogleGenerativeAI(API_KEY);
-
+import { pipeline } from "@xenova/transformers";
 // Proxy setup
 
 
@@ -168,7 +168,11 @@ export const loginToSiteStack = async (site, email, Password) => {
 
 //Scraping the answer from Quora
 export const QuoraScrapeAnswers = async (query) => {
-
+    
+   /*  // Step 0: Summarize user query before searching
+    const summarizedQuery = await summarizeWithCompromise(query.text);
+    logger.info(`🔍 Summarized Query: ${summarizedQuery}`);
+ */
     logger.info("Starting Puppeteer browser for Quora...");
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
@@ -483,3 +487,51 @@ export const fetchResponse = async (questionId) => {
     }
 
 }
+
+
+// **Function to summarize the user query using Compromise**
+/* //const summarizeWithCompromise = async (text) => {
+     const summarizer = await pipeline('summarization');
+     let summary = await summarizer(text);
+     return summary;
+ */
+ 
+    /*   // Load summarization pipeline
+      const summarizer = await pipeline("summarization", "Xenova/bart-large-cnn");
+     
+      // Generate summary
+      const summary = await summarizer(text, { max_length: 20, min_length: 5 });
+      return summary[0].summary_text; */
+     /* const doc = nlp(text);
+ 
+     // Extract meaningful parts of the question
+     const mainSentence = doc.sentences().toPastTense().out("text"); // Keep structure
+     const keyNouns = doc.nouns().toSingular().out("array").slice(0, 3); // Limit to 3 main topics
+     const keyVerbs = doc.verbs().toInfinitive().out("array").slice(0, 2); // Limit to 2 main actions
+ 
+     // Form a concise summary
+     const summary = `${keyNouns.join(" ")} ${keyVerbs.join(" ")}?`;
+ 
+     return summary.length > 10 ? summary : mainSentence; // Fallback to full sentence if too short 
+ };
+ */
+
+  export const summarizeResponses = async (questionId) => {
+    try {
+        const responses = await Response.find({ questionId });
+        if (!responses.length) return null;
+        
+        const responseText = responses.map(r => r.content).join('\n');
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(responseText);
+        const summaryText = result.response.candidates[0].content.parts[0].text;
+        
+        await Question.findByIdAndUpdate(questionId, { summaryText });
+        console.log(`Summary updated for question: ${questionId}`);
+        return summaryText;
+    } catch (error) {
+        console.error("Error summarizing responses:", error);
+        return null;
+    }
+};
+
