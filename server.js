@@ -58,6 +58,33 @@ app.get("/responses/:questionId", async (req, res) => {
   }
 });
 
+// Get final ai generated response
+app.get("/questions/:questionId", async (req, res) => {
+  try {
+    const { questionId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(questionId)) {
+      return res.status(400).json({ error: "Invalid question ID format" });
+    }
+
+    const question = await Question.findById(questionId);
+
+    if (!question) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    res.json({ 
+      question: question.text, 
+      summary: question.summary || "Summary not available yet." 
+    });
+
+  } catch (error) {
+    console.error("Error fetching question summary:", error);
+    res.status(500).json({ error: "Server error", details: error.message });
+  }
+});
+
+//triggers the gemini model to summarize all the responses stored
 app.post("/update/:questionId", async (req, res) => {
   const { questionId } = req.params;
 
@@ -70,7 +97,10 @@ app.post("/update/:questionId", async (req, res) => {
   }
 });
 
-  app.post("/login", async (req, res) => {
+
+
+//login users that already have the account ready
+app.post("/login", async (req, res) => {
     const { site, email, Password } = req.body;
   
     try {
