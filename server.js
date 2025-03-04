@@ -1,19 +1,41 @@
 import express from "express";
-import { QuoraScrapeAnswers, loginToSiteQuora,loginToSiteStack,StackOverflowScrapeAnswers,summarizeResponses } from "./scraper.js";
-import { Question, Response } from "./models/models.js";
 import connectDB from "./db.js"; // Import the database connection
-import mongoose from "mongoose";
+import { logger } from "./logs/logger.js";
+import dotenv from 'dotenv';
+import cors from 'cors';
+
+
+import scrapingRoutes from './routes/scraping.js';
+import questionRoutes from './routes/questions.js';
+import userRoutes from './routes/users.js';
+import commentRoutes from './routes/comments.js';
+
+// Configuration
+dotenv.config();
 
 
 const app = express();
 app.use(express.json());
 
+// Middleware
+app.use(express.json({ limit: '30mb' }));
+app.use(express.urlencoded({ limit: '30mb', extended: true }));
+app.use(cors());
+
+// Routes
+app.use('/api/questions', questionRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/scraping', scrapingRoutes);
+
 // Connect to MongoDB before starting the server
 connectDB();
 
-const PORT = process.env.PORT || 6000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+// Error handling middleware
+app.use((err, req, res, next) => {
+  logger.error(`Error: ${err.message}`);
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
 });
 
 app.get("/", (req, res) => {
@@ -21,84 +43,12 @@ app.get("/", (req, res) => {
   });
   
 
-// Submit a question
-app.post("/ask", async (req, res) => {
-  const { text, userId } = req.body;
-  const question = await Question.create({ text, userId });
-
-  // Trigger scraping asynchronously
- 
-  QuoraScrapeAnswers(question);
-  StackOverflowScrapeAnswers(question);
-  
-  
-  res.json({ message: "Processing your query!", question });
+const PORT = process.env.PORT
+app.listen(PORT, () => {
+  logger.info(`🚀 Server running on port ${PORT}`);
 });
 
-// Get responses
-app.get("/responses/:questionId", async (req, res) => {
-  try {
-    const { questionId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(questionId)) {
-      return res.status(400).json({ error: "Invalid question ID format" });
-    }
-
-    const objectId = new mongoose.Types.ObjectId(questionId);
-    const responses = await Response.find({ questionId: objectId });
-
-    if (!responses || responses.length === 0) {
-      return res.status(404).json({ message: "No responses found" });
-    }
-
-    res.json(responses);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error", details: error.message });
-  }
-});
-
-// Get final ai generated response
-app.get("/questions/:questionId", async (req, res) => {
-  try {
-    const { questionId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(questionId)) {
-      return res.status(400).json({ error: "Invalid question ID format" });
-    }
-
-    const question = await Question.findById(questionId);
-
-    if (!question) {
-      return res.status(404).json({ message: "Question not found" });
-    }
-
-    res.json({ 
-      question: question.text, 
-      summary: question.summary || "Summary not available yet." 
-    });
-
-  } catch (error) {
-    console.error("Error fetching question summary:", error);
-    res.status(500).json({ error: "Server error", details: error.message });
-  }
-});
-
-//triggers the gemini model to summarize all the responses stored
-app.post("/update/:questionId", async (req, res) => {
-  const { questionId } = req.params;
-
-  try {
-    let summary = await summarizeResponses(questionId);
-    res.json({ summary });
-  } catch (error) {
-    console.error("Error updating summary:", error);
-    res.status(500).json({ error: "Failed to update summary" });
-  }
-});
-
-
-
+/* 
 //login users that already have the account ready
 app.post("/login", async (req, res) => {
     const { site, email, Password } = req.body;
@@ -121,3 +71,4 @@ app.post("/login", async (req, res) => {
 });
   
 
+ */

@@ -61,3 +61,32 @@ export const summarizeQuestion = async (questionText) => {
     return questionText; // Return original text on error
   }
 };
+
+
+
+// **Function to summarize the user query using Compromise**
+/* //const summarizeWithCompromise = async (text) => {
+     const summarizer = await pipeline('summarization');
+     let summary = await summarizer(text);
+     return summary;
+ */
+ 
+    /*   // Load summarization pipeline
+      const summarizer = await pipeline("summarization", "Xenova/bart-large-cnn");
+     
+      // Generate summary
+      const summary = await summarizer(text, { max_length: 20, min_length: 5 });
+      return summary[0].summary_text; */
+     /* const doc = nlp(text);
+ 
+     // Extract meaningful parts of the question
+     const mainSentence = doc.sentences().toPastTense().out("text"); // Keep structure
+     const keyNouns = doc.nouns().toSingular().out("array").slice(0, 3); // Limit to 3 main topics
+     const keyVerbs = doc.verbs().toInfinitive().out("array").slice(0, 2); // Limit to 2 main actions
+ 
+     // Form a concise summary
+     const summary = `${keyNouns.join(" ")} ${keyVerbs.join(" ")}?`;
+ 
+     return summary.length > 10 ? summary : mainSentence; // Fallback to full sentence if too short 
+ };
+ */
