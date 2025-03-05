@@ -1,6 +1,8 @@
 import express from 'express';
-import { Question } from '../models/models.js';
-import { QuoraScrapeAnswers, StackOverflowScrapeAnswers, summarizeResponses } from '../utils/scraper.js';
+import { Question } from '../models/QuestionModel.js';
+import { QuoraScrapeAnswers } from '../utils/QuoraScraper.js'
+import{ StackOverflowScrapeAnswers } from '../utils/StackScraper.js';
+import { summarizeResponses } from '../utils/ResponseSummary.js';
 import { categorizeQuestion } from '../utils/nlp.js';
 
 const router = express.Router();

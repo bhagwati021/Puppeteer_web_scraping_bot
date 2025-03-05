@@ -1,6 +1,7 @@
 import express from 'express';
-import { Question, Response } from '../models/models.js';
-import { summarizeResponses } from '../utils/scraper.js';
+import { Question } from '../models/QuestionModel.js'
+import { Response } from '../models/ResponseModel.js';
+import { summarizeResponses } from '../utils/ResponseSummary.js';
 
 const router = express.Router();
 
