@@ -12,6 +12,7 @@
     "fs": "^0.0.1-security",
     "graphql": "^16.10.0",
     "mongoose": "^8.10.1",
+    "node-fetch": "^3.3.2",
     "promises": "^0.2.5",
     "puppeteer": "^24.3.0",
     "puppeteer-extra": "^3.3.6",

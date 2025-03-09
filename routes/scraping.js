@@ -38,8 +38,8 @@ router.post('/scrape/:questionId', async (req, res) => {
       if (quoraResponses) responses = responses.concat(quoraResponses);
     } else {
       // For other categories, just scrape from Quora
-      const quoraResponses = await QuoraScrapeAnswers(question);
-      if (quoraResponses) responses = responses.concat(quoraResponses);
+      const stackResponses = await StackOverflowScrapeAnswers(question);
+      if (stackResponses) responses = responses.concat(stackResponses);
     }
     
     // Generate summary from all responses

@@ -47,28 +47,3 @@ const PORT = process.env.PORT
 app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
 });
-
-/* 
-//login users that already have the account ready
-app.post("/login", async (req, res) => {
-    const { site, email, Password } = req.body;
-  
-    try {
-        let session;
-
-        if (site === "https://www.quora.com/") {
-            session = await loginToSiteQuora(site, email, Password);
-        } else if (site === "https://stackoverflow.com/") {
-            session = await loginToSiteStack(site,email, Password);
-        } else {
-            return res.status(400).json({ error: "Unsupported site. Use 'quora' or 'stackoverflow'." });
-        }
-
-        res.json(session);
-    } catch (error) {
-        res.status(500).json({ error: "Login failed", details: error.message });
-    }
-});
-  
-
- */

@@ -1,4 +1,4 @@
-import { Response } from "../models/ResponseModel";
+import { Response } from "../models/ResponseModel.js";
 import { Question } from "../models/QuestionModel.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logger } from '../logs/logger.js'
