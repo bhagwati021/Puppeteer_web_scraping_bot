@@ -64,4 +64,25 @@ router.get('/:id/summary', async (req, res) => {
   }
 });
 
+
+// Delete a question and its related responses
+router.delete('/:id', async (req, res) => {
+  try {
+    const questionId = req.params.id;
+
+    // Find and delete the question
+    const question = await Question.findById(questionId);
+    if (!question) return res.status(404).json({ message: 'Question not found' });
+
+    await Question.findByIdAndDelete(questionId);
+
+    // Delete all responses related to the question
+    await Response.deleteMany({ questionId });
+
+    res.status(200).json({ message: 'Question and related responses deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
