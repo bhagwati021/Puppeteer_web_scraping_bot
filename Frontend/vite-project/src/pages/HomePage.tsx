@@ -115,6 +115,7 @@ const HomePage: React.FC = () => {
       const filteredDummyQuestions = activeCategory === 'all' 
         ? dummyQuestions 
         : dummyQuestions.filter(q => q.category === activeCategory);
+        console.log('Filtered Dummy Questions:', filteredDummyQuestions);
       setQuestions(filteredDummyQuestions);
       setComments(dummyComments);
       setError('Server connection failed. Showing demo data.');
