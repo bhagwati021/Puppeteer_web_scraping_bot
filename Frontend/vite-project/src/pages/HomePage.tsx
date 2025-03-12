@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { MessageCircle, ThumbsUp, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -63,7 +63,7 @@ const dummyComments: Record<string, Comment[]> = {
 };
 
 const HomePage: React.FC = () => {
-  const navigate = useNavigate();
+  
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeCategory, setActiveCategory] = useState<string>('all');
@@ -104,8 +104,12 @@ const HomePage: React.FC = () => {
       setQuestions(serializedQuestions);
       setError(null);
       setIsOfflineMode(false);
-    } catch (error) {
-      console.error('Error fetching questions:', error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Error fetching questions:', error.message);
+      } else {
+        console.error('Unknown error occurred');
+      }
       // Load dummy data if server is unavailable
       setIsOfflineMode(true);
       const filteredDummyQuestions = activeCategory === 'all' 
@@ -128,8 +132,13 @@ const HomePage: React.FC = () => {
     try {
       const response = await axios.get(`http://localhost:5000/api/comments/question/${questionId}`);
       setComments((prev) => ({ ...prev, [questionId]: response.data }));
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
       console.error('Error fetching comments:', error.message);
+      alert('Failed to Fetch Comments. Please try again later.');
+    } else {
+      console.error('Unknown error occurred while fetching Comments');
+    }
     }
   };
 
@@ -154,10 +163,14 @@ const HomePage: React.FC = () => {
       const { data } = await axios.post(`http://localhost:5000/api/scraping/scrape/${questionId}`);
       alert(`Scraping completed: ${data.responseCount} responses. Summary: ${data.summary || 'None available'}`);
       fetchQuestions();
-    } catch (error) {
+    } catch (error: unknown) {
+    if (error instanceof Error) {
       console.error('Error triggering scraping:', error.message);
       alert('Failed to start scraping. Please try again later.');
+    } else {
+      console.error('Unknown error occurred while triggering scraping');
     }
+  }
   };
 
   const addComment = async (questionId: string, text: string) => {
@@ -178,8 +191,13 @@ const HomePage: React.FC = () => {
     try {
       await axios.post(`http://localhost:5000/api/comments`, { userId: 'user123', questionId, text });
       fetchComments(questionId);
-    } catch (error) {
-      console.error('Error adding comment:', error.message);
+    } catch (error:unknown) {
+      if (error instanceof Error) {
+        console.error('Error adding comment:', error.message);
+        alert('Error adding comment. Please try again later.');
+      } else {
+        console.error('Unknown error occurred while adding comments');
+      }
     }
   };
 
@@ -190,11 +208,15 @@ const HomePage: React.FC = () => {
     }
 
     try {
-      const response = await axios.delete(`http://localhost:5000/api/questions/${questionId}`);
+      await axios.delete(`http://localhost:5000/api/questions/${questionId}`);
       setQuestions((prevQuestions) => prevQuestions.filter((q) => q._id !== questionId));
-    } catch (error) {
+    } catch (error:unknown) {
+      if (error instanceof Error) {
       console.error('Error deleting question:', error.message);
       alert('Failed to delete question. Please try again later.');
+      } else{
+        console.error('Unknown error occurred while deleting question');
+      }
     }
   };
 

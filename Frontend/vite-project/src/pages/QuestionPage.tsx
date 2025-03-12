@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { MessageCircle, ThumbsUp, ExternalLink, RefreshCw, ArrowLeft, Clock } from 'lucide-react';
+import { ExternalLink, RefreshCw, ArrowLeft, Clock } from 'lucide-react';
 
 interface Question {
   _id: string;
@@ -188,7 +188,7 @@ const QuestionPage: React.FC = () => {
     
     setScraping(true);
     try {
-      const { data } = await axios.post(`http://localhost:5000/api/scraping/scrape/${id}`);
+      await axios.post(`http://localhost:5000/api/scraping/scrape/${id}`);
       const questionRes = await axios.get(`http://localhost:5000/api/questions/${id}`);
       setQuestion(questionRes.data.question);
       setResponses(questionRes.data.responses || []);
@@ -248,6 +248,11 @@ const QuestionPage: React.FC = () => {
       </div>
     );
   }
+  {error && (
+    <div className="error-message" style={{ color: 'red', marginBottom: '1rem' }}>
+      {error}
+    </div>
+  )}
 
   if (!question) {
     return (

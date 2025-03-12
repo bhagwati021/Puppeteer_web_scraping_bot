@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Search, User, LogIn, HelpCircle } from 'lucide-react';
+import { Search, LogIn, HelpCircle } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   return (
