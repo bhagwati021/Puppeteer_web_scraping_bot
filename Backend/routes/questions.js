@@ -2,9 +2,26 @@ import express from 'express';
 import { Question } from '../models/QuestionModel.js'
 import { Response } from '../models/ResponseModel.js';
 import { summarizeResponses } from '../utils/ResponseSummary.js';
+import multer from "multer";
 
 const router = express.Router();
 
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB size limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error("Only JPEG and PNG formats are allowed."));
+    }
+    cb(null, true);
+  },
+});
 // Get all questions
 router.get('/', async (req, res) => {
   try {
@@ -30,14 +47,19 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create a new question
-router.post('/', async (req, res) => {
-  const { userId, text, category } = req.body;
+router.post('/', upload.single("image"), async (req, res) => {
+  const { userId, text } = req.body;
+  const imagePath = req.file ? req.file.path : null; // Get the file path
+
+  if (!userId || !text) {
+    return res.status(400).json({ message: "userId and text are required." });
+  }
   
   try {
     const newQuestion = new Question({
       userId,
       text,
-      category,
+      image: imagePath, // Save the file path
       createdAt: new Date().toISOString()
     });
     

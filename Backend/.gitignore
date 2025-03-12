@@ -4,3 +4,4 @@ logs/app.log
 .env
 cookies.json
 quora_cookies.json
+/uploads

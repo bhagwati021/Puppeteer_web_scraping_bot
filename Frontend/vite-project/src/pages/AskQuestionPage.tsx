@@ -4,28 +4,31 @@ import axios from 'axios';
 
 const AskQuestionPage: React.FC = () => {
   const [question, setQuestion] = useState('');
-  const [category, setCategory] = useState('general');
+  const [image, setImage] = useState<File | null>(null); // For the uploaded image
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverUnavailable, setServerUnavailable] = useState(false);
+  const [scrapingMessage, setScrapingMessage] = useState<string | null>(null); // Scraping status
   const navigate = useNavigate();
-
-  const categories = [
-    { id: 'programming', name: 'Programming' },
-    { id: 'technology', name: 'Technology' },
-    { id: 'science', name: 'Science' },
-    { id: 'health', name: 'Health' },
-    { id: 'education', name: 'Education' },
-    { id: 'general', name: 'General' },
-  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!question.trim()) return;
+    if (!question.trim()) {
+      setError("Question cannot be empty!");
+      return;
+    }
     
     setLoading(true);
     setError(null);
+    setScrapingMessage(null);
+
+    const formData = new FormData();
+    formData.append('userId', '64a83bd239ab67c9e456d3f2'); // Replace with actual user ID logic
+    formData.append('text', question);
+    if (image) {
+      formData.append('image', image); // Include the uploaded image
+    }
     
     try {
       // Create a timeout promise to handle API timeouts
@@ -34,34 +37,45 @@ const AskQuestionPage: React.FC = () => {
       });
       
       // Create the actual API request
-      const apiPromise = axios.post('http://localhost:5000/api/questions', {
-        userId: "placeholder-user-id",
-        text: question,
-        category
+      
+      const apiPromise = axios.post('http://localhost:5000/api/questions', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       
-      try {
-        // Race the API request against the timeout
-        const response = await Promise.race([apiPromise, timeoutPromise]) as any;
-        // Navigate to the new question page
-        navigate(`/question/${response.data._id}`);
-      } catch (error) {
-        if (error instanceof Error && (error.message.includes('Network Error') || error.message.includes('timed out'))) {
-          setServerUnavailable(true);
-          // In demo mode, navigate to a mock question
-          const mockId = Math.floor(Math.random() * 3) + 1; // Random ID between 1-3
-          navigate(`/question/${mockId}`);
-        } else {
-          throw error; // Re-throw for the outer catch
-        }
+      const response = await Promise.race([apiPromise, timeoutPromise]) as any;
+
+      if (!response.data || !response.data._id) {
+        throw new Error('Invalid server response: Missing question ID');
+      }  
+      const questionId = response.data._id;
+
+      // Trigger scraping for the question
+      setScrapingMessage('Scraping answer...');
+      const scrapingResponse = await axios.post(`http://localhost:5000/api/scraping/scrape/${questionId}`);
+      if (scrapingResponse.data?.summary) {
+        setScrapingMessage('Scraping completed successfully!');
+      } else {
+        setScrapingMessage('Scraping completed but no summary was generated.');
       }
-    } catch (error) {
-      setError("Failed to submit question. Please try again later.");
-      console.error('Error posting question:', error instanceof Error ? error.message : 'Unknown error');
+
+      navigate(`/question/${response.data._id}`);
+    } catch (error: any) {
+      if (error.message.includes('Network Error') || error.message.includes('timed out')) {
+        setServerUnavailable(true);
+      } else {
+        setError(error.response?.data?.message || 'Failed to submit question. Please try again later.');
+      }
+      console.error('Error submitting question:', error);
+    } finally {
       setLoading(false);
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setImage(e.target.files[0]);
+    }
+  };
   return (
     <div className="max-w-3xl mx-auto">
       {serverUnavailable && (
@@ -102,23 +116,17 @@ const AskQuestionPage: React.FC = () => {
               Be specific and clear to get better answers
             </p>
           </div>
-          
           <div className="mb-6">
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <select
-              id="category"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+            <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
+  Upload an Image (Optional)
+</label>
+<input
+  id="image"
+  type="file"
+  accept="image/*"
+  className="w-full p-2 border border-gray-300 rounded-md bg-blue-50 text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  onChange={handleImageChange}
+/>
           </div>
           
           <button
@@ -140,6 +148,12 @@ const AskQuestionPage: React.FC = () => {
             <li>You can view all original sources and add your own comments</li>
           </ol>
         </div>
+        {scrapingMessage && (
+          <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-md">
+            <h2 className="text-lg font-semibold text-green-800 mb-2">Scraping Status</h2>
+            <p className="text-gray-700">{scrapingMessage}</p>
+          </div>
+        )}
       </div>
     </div>
   );

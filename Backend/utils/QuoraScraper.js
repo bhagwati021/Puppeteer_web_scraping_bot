@@ -107,7 +107,7 @@ export const QuoraScrapeAnswers = async (query) => {
     await responseEntry.save();
 
     responses.push(responseEntry);
-    logger.info(`💾 Summarized answer saved to database`);
+    logger.info(`💾Answer saved to database`);
 }
 
     await browser.close();

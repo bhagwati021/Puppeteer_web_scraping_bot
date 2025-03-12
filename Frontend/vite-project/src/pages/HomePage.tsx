@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { MessageCircle, ThumbsUp, Clock } from 'lucide-react';
+import { MessageCircle, ThumbsUp, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Question {
   _id: string;
   text: string;
-  category?: string; // Marked as optional to prevent potential issues
+  category?: string;
   createdAt: string;
   summary?: string;
 }
@@ -18,12 +18,59 @@ interface Comment {
   userId: string;
 }
 
+// Dummy data for offline mode
+const dummyQuestions: Question[] = [
+  {
+    _id: '1',
+    text: 'How do I implement authentication in a MERN stack application?',
+    category: 'programming',
+    createdAt: new Date().toISOString(),
+    summary: 'Use JWT tokens for authentication in MERN stack. Store tokens in HTTP-only cookies or localStorage, implement middleware for protected routes, and use bcrypt for password hashing.'
+  },
+  {
+    _id: '2',
+    text: 'What are the best practices for React state management in 2025?',
+    category: 'technology',
+    createdAt: new Date().toISOString(),
+    summary: 'Modern React state management favors React Query for server state, Zustand for global state, and Context API with useReducer for complex component state.'
+  },
+  {
+    _id: '3',
+    text: 'How does quantum computing affect cryptography?',
+    category: 'science',
+    createdAt: new Date().toISOString(),
+    summary: 'Quantum computing poses challenges to current cryptographic methods through Shor\'s algorithm. Post-quantum cryptography is being developed to address these concerns.'
+  }
+];
+
+const dummyComments: Record<string, Comment[]> = {
+  '1': [
+    {
+      _id: 'c1',
+      text: 'JWT with HTTP-only cookies is definitely the way to go!',
+      createdAt: new Date().toISOString(),
+      userId: 'user1'
+    }
+  ],
+  '2': [
+    {
+      _id: 'c2',
+      text: 'Zustand has been a game-changer for my projects',
+      createdAt: new Date().toISOString(),
+      userId: 'user2'
+    }
+  ]
+};
+
 const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
 
   const categories = [
     { id: 'all', name: 'All Categories' },
@@ -56,15 +103,28 @@ const HomePage: React.FC = () => {
 
       setQuestions(serializedQuestions);
       setError(null);
+      setIsOfflineMode(false);
     } catch (error) {
       console.error('Error fetching questions:', error.message);
-      setError('Failed to fetch questions. Please try again later.');
+      // Load dummy data if server is unavailable
+      setIsOfflineMode(true);
+      const filteredDummyQuestions = activeCategory === 'all' 
+        ? dummyQuestions 
+        : dummyQuestions.filter(q => q.category === activeCategory);
+      setQuestions(filteredDummyQuestions);
+      setComments(dummyComments);
+      setError('Server connection failed. Showing demo data.');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchComments = async (questionId: string) => {
+    if (isOfflineMode) {
+      setComments(dummyComments);
+      return;
+    }
+
     try {
       const response = await axios.get(`http://localhost:5000/api/comments/question/${questionId}`);
       setComments((prev) => ({ ...prev, [questionId]: response.data }));
@@ -73,11 +133,27 @@ const HomePage: React.FC = () => {
     }
   };
 
+  const toggleComments = (questionId: string) => {
+    setExpanded((prev) => ({
+      ...prev,
+      [questionId]: !prev[questionId],
+    }));
+
+    if (!comments[questionId]) {
+      fetchComments(questionId);
+    }
+  };
+
   const triggerScraping = async (questionId: string) => {
+    if (isOfflineMode) {
+      alert('Scraping is not available in demo mode');
+      return;
+    }
+
     try {
-      const { data } = await axios.post(`http://localhost:5000/api/scrape/${questionId}`);
+      const { data } = await axios.post(`http://localhost:5000/api/scraping/scrape/${questionId}`);
       alert(`Scraping completed: ${data.responseCount} responses. Summary: ${data.summary || 'None available'}`);
-      fetchQuestions(); // Refresh questions to reflect updates
+      fetchQuestions();
     } catch (error) {
       console.error('Error triggering scraping:', error.message);
       alert('Failed to start scraping. Please try again later.');
@@ -85,19 +161,37 @@ const HomePage: React.FC = () => {
   };
 
   const addComment = async (questionId: string, text: string) => {
+    if (isOfflineMode) {
+      const newComment: Comment = {
+        _id: `c${Date.now()}`,
+        text,
+        createdAt: new Date().toISOString(),
+        userId: 'demo-user'
+      };
+      setComments(prev => ({
+        ...prev,
+        [questionId]: [...(prev[questionId] || []), newComment]
+      }));
+      return;
+    }
+
     try {
       await axios.post(`http://localhost:5000/api/comments`, { userId: 'user123', questionId, text });
-      fetchComments(questionId); // Refresh comments
+      fetchComments(questionId);
     } catch (error) {
       console.error('Error adding comment:', error.message);
     }
   };
 
   const deleteQuestion = async (questionId: string) => {
+    if (isOfflineMode) {
+      setQuestions(prev => prev.filter(q => q._id !== questionId));
+      return;
+    }
+
     try {
       const response = await axios.delete(`http://localhost:5000/api/questions/${questionId}`);
-      // alert(response.data.message); // Notify user of successful deletion
-      setQuestions((prevQuestions) => prevQuestions.filter((q) => q._id !== questionId)); // Update state
+      setQuestions((prevQuestions) => prevQuestions.filter((q) => q._id !== questionId));
     } catch (error) {
       console.error('Error deleting question:', error.message);
       alert('Failed to delete question. Please try again later.');
@@ -117,6 +211,17 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto">
+      {isOfflineMode && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center mb-6">
+          <p className="text-yellow-700">
+            <strong>Demo Mode:</strong> Server connection failed. Showing demo data.
+          </p>
+          <p className="mt-1 text-sm text-gray-600">
+            To see real data, start the server with <code className="bg-gray-100 px-2 py-1 rounded">npm run dev:server</code>
+          </p>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Recent Questions</h1>
         <Link
@@ -147,7 +252,7 @@ const HomePage: React.FC = () => {
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
         </div>
-      ) : error ? (
+      ) : error && !isOfflineMode ? (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center mb-6">
           <p className="text-yellow-700">{error}</p>
           <button
@@ -173,7 +278,11 @@ const HomePage: React.FC = () => {
                     {formatDate(question.createdAt)}
                   </span>
                 </div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">{question.text}</h2>
+                <Link to={`/question/${question._id}`}>
+                  <h2 className="text-xl font-semibold text-gray-800 mb-2 hover:text-indigo-600 transition-colors">
+                    {question.text}
+                  </h2>
+                </Link>
                 {question.summary && <p className="text-gray-600 mb-4 line-clamp-2">{question.summary}</p>}
                 <div className="flex items-center text-gray-500">
                   <div className="flex items-center mr-4">
@@ -193,10 +302,18 @@ const HomePage: React.FC = () => {
                     Scrape Data
                   </button>
                   <button
-                    onClick={() => fetchComments(question._id)}
+                    onClick={() => toggleComments(question._id)}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
-                    View Comments
+                    {expanded[question._id] ? (
+                      <>
+                        Hide Comments <ChevronUp className="inline h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        View Comments <ChevronDown className="inline h-4 w-4" />
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => deleteQuestion(question._id)}
@@ -204,25 +321,35 @@ const HomePage: React.FC = () => {
                   >
                     Delete Post
                   </button>
-                
                 </div>
               </div>
-              {comments[question._id] && (
+              {expanded[question._id] && (
                 <div className="p-4 bg-gray-50">
-                  {comments[question._id].map((comment) => (
-                    <div key={comment._id} className="mb-2">
+                  {comments[question._id]?.map((comment) => (
+                    <div key={comment._id} className="mb-4 p-3 bg-white rounded-lg shadow-sm">
+                      <div className="flex items-center mb-2">
+                        <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                          {comment.userId.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="ml-2">
+                          <p className="text-sm font-medium text-gray-700">User {comment.userId}</p>
+                          <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
+                        </div>
+                      </div>
                       <p className="text-gray-700">{comment.text}</p>
-                      <p className="text-sm text-gray-500">{formatDate(comment.createdAt)}</p>
                     </div>
                   ))}
                   <input
                     type="text"
                     placeholder="Add a comment..."
-                    className="w-full px-3 py-2 border rounded-md"
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        addComment(question._id, (e.target as HTMLInputElement).value);
-                        (e.target as HTMLInputElement).value = '';
+                        const input = e.target as HTMLInputElement;
+                        if (input.value.trim()) {
+                          addComment(question._id, input.value);
+                          input.value = '';
+                        }
                       }
                     }}
                   />
