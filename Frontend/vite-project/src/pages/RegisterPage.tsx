@@ -22,7 +22,7 @@ const RegisterPage: React.FC = () => {
     
     setLoading(true);
     try {
-      const response = await axios.post('http://backend.bhagwatibashyal.site:5000/api/users/register', {
+      const response = await axios.post('https://backend.bhagwatibashyal.site/api/users/register', {
         username,
         email,
         password

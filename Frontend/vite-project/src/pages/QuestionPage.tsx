@@ -147,8 +147,8 @@ const QuestionPage: React.FC = () => {
           setError('Server connection failed. Showing demo data.');
         } else {
           const [questionRes, commentsRes] = await Promise.all([
-            axios.get(`http://backend.bhagwatibashyal.site:5000/api/questions/${id}`),
-            axios.get(`http://backend.bhagwatibashyal.site:5000/api/comments/question/${id}`)
+            axios.get(`https://backend.bhagwatibashyal.site/api/questions/${id}`),
+            axios.get(`https://backend.bhagwatibashyal.site/api/comments/question/${id}`)
           ]);
 
           setQuestion(questionRes.data.question);
@@ -188,8 +188,8 @@ const QuestionPage: React.FC = () => {
     
     setScraping(true);
     try {
-      await axios.post(`http://backend.bhagwatibashyal.site:5000/api/scraping/scrape/${id}`);
-      const questionRes = await axios.get(`http://backend.bhagwatibashyal.site:5000/api/questions/${id}`);
+      await axios.post(`https://backend.bhagwatibashyal.site/api/scraping/scrape/${id}`);
+      const questionRes = await axios.get(`https://backend.bhagwatibashyal.site/api/questions/${id}`);
       setQuestion(questionRes.data.question);
       setResponses(questionRes.data.responses || []);
     } catch (error) {
@@ -218,13 +218,13 @@ const QuestionPage: React.FC = () => {
     }
 
     try {
-      await axios.post('http://backend.bhagwatibashyal.site:5000/api/comments', {
+      await axios.post('https://backend.bhagwatibashyal.site/api/comments', {
         userId: 'user123',
         questionId: id,
         text: newComment
       });
 
-      const commentsRes = await axios.get(`http://backend.bhagwatibashyal.site:5000/api/comments/question/${id}`);
+      const commentsRes = await axios.get(`https://backend.bhagwatibashyal.site/api/comments/question/${id}`);
       setComments(commentsRes.data);
       setNewComment('');
     } catch (error) {
