@@ -7,5 +7,5 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
-   base:"/Puppeteer_web_scraping_bot/"
+  // base:"/Puppeteer_web_scraping_bot/"
 })

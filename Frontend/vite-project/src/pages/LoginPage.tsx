@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     
     try {
-      const response = await axios.post('http://localhost:5000/api/users/login', {
+      const response = await axios.post('http://backend.bhagwatibashyal.site:5000/api/users/login', {
         email,
         password
       });
