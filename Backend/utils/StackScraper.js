@@ -11,7 +11,9 @@ async function searchQuestions(query) {
 
     try {
         const response = await fetch(url);
+        console.log("response after fectching question from stack overflow",response);
         const data = await response.json();
+        console.log("response after filtering question from stack overflow",data);
 
         if (data.items && data.items.length > 0) {
             const questions = data.items.slice(0, 5); // Most relevant 5 questions

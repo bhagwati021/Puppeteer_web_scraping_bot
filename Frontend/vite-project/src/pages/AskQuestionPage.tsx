@@ -38,7 +38,7 @@ const AskQuestionPage: React.FC = () => {
       
       // Create the actual API request
       
-      const apiPromise = axios.post('https://backend.bhagwatibashyal.site/api/questions', formData, {
+      const apiPromise = axios.post('http://localhost:5000/api/questions', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       
@@ -51,7 +51,7 @@ const AskQuestionPage: React.FC = () => {
 
       // Trigger scraping for the question
       setScrapingMessage('Scraping answer...');
-      const scrapingResponse = await axios.post(`https://backend.bhagwatibashyal.site/api/scraping/scrape/${questionId}`);
+      const scrapingResponse = await axios.post(`http://localhost:5000/api/scraping/scrape/${questionId}`);
       if (scrapingResponse.data?.summary) {
         setScrapingMessage('Scraping completed successfully!');
       } else {

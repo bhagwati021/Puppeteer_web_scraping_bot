@@ -34,7 +34,7 @@ const ProfilePage: React.FC = () => {
     const fetchUserQuestions = async () => {
       try {
         // In a real app, you'd call an API endpoint like:
-        const response = await axios.get(`https://backend.bhagwatibashyal.site/api/questions/user/${user}`);
+        const response = await axios.get(`http://localhost:5000/api/questions/user/${user}`);
         setQuestions(response.data);
         
         // Mock data for demonstration

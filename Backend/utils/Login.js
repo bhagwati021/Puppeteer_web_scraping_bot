@@ -3,7 +3,7 @@ import { logger } from '../logs/logger.js'
 
 
 
-// Authentication & Cookie Handling
+//  for admins: Authentication & Cookie Handling
 export const loginToSiteQuora = async (site, email, Password) => {
     logger.info("Starting Puppeteer browser for quora...");
     const browser = await puppeteer.launch({ headless: false });

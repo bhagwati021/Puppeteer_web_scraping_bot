@@ -89,7 +89,7 @@ const HomePage: React.FC = () => {
     setLoading(true);
     try {
       const apiPromise = axios.get(
-        `https://backend.bhagwatibashyal.site/api/questions${activeCategory !== 'all' ? `?category=${activeCategory}` : ''}`
+        `http://localhost:5000/api/questions${activeCategory !== 'all' ? `?category=${activeCategory}` : ''}`
       );
       const response = await apiPromise;
 
@@ -131,7 +131,7 @@ const HomePage: React.FC = () => {
     }
 
     try {
-      const response = await axios.get(`https://backend.bhagwatibashyal.site/api/comments/question/${questionId}`);
+      const response = await axios.get(`http://localhost:5000/api/comments/question/${questionId}`);
       setComments((prev) => ({ ...prev, [questionId]: response.data }));
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -161,7 +161,7 @@ const HomePage: React.FC = () => {
     }
 
     try {
-      const { data } = await axios.post(`https://backend.bhagwatibashyal.site/api/scraping/scrape/${questionId}`);
+      const { data } = await axios.post(`http://localhost:5000/api/scraping/scrape/${questionId}`);
       alert(`Scraping completed: ${data.responseCount} responses. Summary: ${data.summary || 'None available'}`);
       fetchQuestions();
     } catch (error: unknown) {
@@ -190,7 +190,7 @@ const HomePage: React.FC = () => {
     }
 
     try {
-      await axios.post(`https://backend.bhagwatibashyal.site/api/comments`, { userId: 'user123', questionId, text });
+      await axios.post(`http://localhost:5000/api/comments`, { userId: 'user123', questionId, text });
       fetchComments(questionId);
     } catch (error:unknown) {
       if (error instanceof Error) {
@@ -209,7 +209,7 @@ const HomePage: React.FC = () => {
     }
 
     try {
-      await axios.delete(`https://backend.bhagwatibashyal.site/api/questions/${questionId}`);
+      await axios.delete(`http://localhost:5000/api/questions/${questionId}`);
       setQuestions((prevQuestions) => prevQuestions.filter((q) => q._id !== questionId));
     } catch (error:unknown) {
       if (error instanceof Error) {

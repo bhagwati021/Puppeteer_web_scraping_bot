@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+// import { Logger } from '../../logs/logger.js';
 
 const RegisterPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -19,21 +20,26 @@ const RegisterPage: React.FC = () => {
       setError('Passwords do not match');
       return;
     }
-    
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
     setLoading(true);
+    console.log({ username, email, password })
     try {
-      const response = await axios.post('https://backend.bhagwatibashyal.site/api/users/register', {
-        username,
-        email,
-        password
-      });
+      await axios.post(
+        'http://localhost:5000/api/users/register',
+        { username, email, password },
+        //{ withCredentials: true }
+      );
       
-      // In a real app, you'd store the user data in context/state management
-      localStorage.setItem('user', JSON.stringify(response.data));
-      
+      alert('Registration successful! Redirecting to the homepage...');
+      //Logger.info('Registration successful! Redirecting to the homepage...');
+    
       navigate('/');
     } catch (error: any) {
       setError(error.response?.data?.message || 'Registration failed. Please try again.');
+     // Logger.error('Registration failed.')
       setLoading(false);
     }
   };

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+//For Admin
 // Credential Schema (for storing site login credentials)
 const credentialSchema = new mongoose.Schema({
   site: { type: String, required: true, index: true }, 

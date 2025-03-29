@@ -3,6 +3,8 @@ import connectDB from "./db.js"; // Import the database connection
 import { logger } from "./logs/logger.js";
 import dotenv from 'dotenv';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import { authenticateToken } from "./middleware/auth.js";
 
 
 import scrapingRoutes from './routes/scraping.js';
@@ -22,8 +24,10 @@ app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ limit: '30mb', extended: true }));
 app.use(cors());
 
+app.use(cookieParser());
+
 // Routes
-app.use('/api/questions', questionRoutes);
+app.use('/api/questions' , questionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/scraping', scrapingRoutes);
@@ -42,7 +46,6 @@ app.get("/", (req, res) => {
     res.send("Welcome to the Social Media Doubt App!");
   });
   
-
 const PORT = process.env.PORT
 app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
